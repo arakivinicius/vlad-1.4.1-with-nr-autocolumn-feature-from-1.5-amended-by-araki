@@ -14,11 +14,11 @@ Begin VB.UserControl ctxHookMenu
    ScaleWidth      =   3840
    ToolboxBitmap   =   "ctxHookMenu.ctx":0020
    Begin VB.Image Image1 
-      Height          =   384
+      Height          =   480
       Left            =   0
       Picture         =   "ctxHookMenu.ctx":0332
       Top             =   0
-      Width           =   384
+      Width           =   480
    End
 End
 Attribute VB_Name = "ctxHookMenu"
@@ -38,7 +38,7 @@ Attribute VB_Exposed = True
 '
 ' 2002-10-28    WQW     Initial implementation
 ' 2002-11-10    WQW     Major refactoring for NT 4.0 compatibility
-'
+' 2003-11-07    NR      Added AutoColumn property. Ammended 2025-03-06 by Araki Vinicius Takehiro.
 '==============================================================================
 Option Explicit
 Implements ISubclassingSink
@@ -135,6 +135,9 @@ Private Const KEY_QUERY_VALUE           As Long = &H1
 Private Const COLOR_MENUBAR             As Long = 30
 '--- for GetVersionEx
 Private Const VER_PLATFORM_WIN32_NT     As Long = 2
+'--- for menu columns
+Private Const MF_MENUBREAK              As Long = &H40
+Private Const m_def_AutoColumn  As Integer = 13 'Somewhat 13 seems to be a good default number for most screensizes(2025). Araki V.T.
 
 Private Declare Function GetDesktopWindow Lib "user32" () As Long
 Private Declare Function GetWindowRect Lib "user32" (ByVal hwnd As Long, lpRect As RECT) As Long
@@ -302,6 +305,9 @@ Private m_bConstrainedColors    As Boolean
 Private m_hLastSelMenu          As Long
 Private m_rcLastSelMenu         As RECT
 Private m_bLastSelMenuRightAlign As Boolean
+'-- Added by NR
+Private m_AutoColumn            As Integer
+
 #If DebugMode Then
     Private m_sDebugID          As String
 #End If
@@ -317,6 +323,13 @@ End Enum
 '==============================================================================
 ' Properties
 '==============================================================================
+Public Property Let AutoColumn(ByVal iAutoColumn As Integer)
+    m_AutoColumn = iAutoColumn
+    PropertyChanged
+End Property
+Public Property Get AutoColumn() As Integer
+    AutoColumn = m_AutoColumn
+End Property
 
 Property Get SelectDisabled() As Boolean
     SelectDisabled = m_bSelectDisabled
@@ -757,62 +770,69 @@ Private Function pvRegGetKeyValue( _
 End Function
 
 Private Sub pvInitMenu(ByVal hMenu As Long, ByVal bMainMenu As Boolean)
-    Dim mii             As MENUITEMINFO
-    Dim lIdx            As Long
-    Dim hMdiChild       As Long
-    Dim sBuffer         As String
-    
-    On Error GoTo EH
-    If hMenu <> 0 Then
-        '--- first, forward to child MDI window
-        hMdiChild = pvGetMdiChild
-        If hMdiChild <> 0 Then
-            If SendMessage(hMdiChild, pvInitMenuMsg, IIf(hMenu = m_hFormMenu, ucsIniMainMenu, ucsIniMenu), hMenu) = 1 Then
-                Exit Sub
+   Dim mii       As MENUITEMINFO
+   Dim lIdx      As Long
+   Dim hMdiChild As Long
+   Dim sBuffer   As String
+   Dim lColumnCount    As Long
+   On Error GoTo EH
+   If hMenu <> 0 Then
+      '--- first, forward to child MDI window
+      hMdiChild = pvGetMdiChild
+      If hMdiChild <> 0 Then
+         If SendMessage(hMdiChild, pvInitMenuMsg, IIf(hMenu = m_hFormMenu, ucsIniMainMenu, ucsIniMenu), hMenu) = 1 Then
+            Exit Sub
+         End If
+      End If
+      '--- then process locally
+      sBuffer = String(1024, 0)
+      For lIdx = 0 To GetMenuItemCount(hMenu) - 1
+         With mii
+            '--- get item info
+            If OsVersion >= &H40A Then '--- &H40A = win98 and later
+               .cbSize = Len(mii)
+               .fMask = MIIM_ID Or MIIM_FTYPE Or MIIM_DATA Or MIIM_STRING
+            Else
+               .cbSize = Len(mii) - 4
+               .fMask = MIIM_ID Or MIIM_TYPE Or MIIM_DATA
             End If
-        End If
-        '--- then process locally
-        sBuffer = String(1024, 0)
-        For lIdx = 0 To GetMenuItemCount(hMenu) - 1
-            With mii
-                '--- get item info
-                If OsVersion >= &H40A Then '--- &H40A = win98 and later
-                    .cbSize = Len(mii)
-                    .fMask = MIIM_ID Or MIIM_FTYPE Or MIIM_DATA Or MIIM_STRING
-                Else
-                    .cbSize = Len(mii) - 4
-                    .fMask = MIIM_ID Or MIIM_TYPE Or MIIM_DATA
-                End If
-                .dwTypeData = StrPtr(sBuffer)
-                .cch = Len(sBuffer)
-                Call GetMenuItemInfo(hMenu, lIdx, 1, mii)
-                '--- store info (if not stored already)
-                If (.fType And MFT_OWNERDRAW) = 0 Then
-                    .dwItemData = pvSetMenuInfo(hMenu, Left(StrConv(sBuffer, vbUnicode), .cch), .fType, bMainMenu, .wID) '--- save hMenu
-                End If
-                '--- set ownerdrawn & itemdata, clear bitmap
-                If OsVersion >= &H40A Then
-                    .cbSize = Len(mii)
-                    .fMask = MIIM_FTYPE Or MIIM_DATA Or MIIM_BITMAP
-                    .hbmpItem = 0
-                Else
-                    .cbSize = Len(mii) - 4
-                    .fMask = MIIM_TYPE Or MIIM_DATA
-                End If
-                .fType = (.fType And (MFT_SEPARATOR Or MFT_RIGHTJUSTIFY)) Or MFT_OWNERDRAW
-                Call SetMenuItemInfo(hMenu, lIdx, 1, mii)
-            End With
-        Next
-    End If
-    #If WEAK_REF_CURRENTMENU Then
-        CopyMemory VarPtr(g_oCurrentMenu), VarPtr(Me), 4
-    #Else
-        Set g_oCurrentMenu = Me
-    #End If
-    Exit Sub
+            .dwTypeData = StrPtr(sBuffer)
+            .cch = Len(sBuffer)
+            Call GetMenuItemInfo(hMenu, lIdx, 1, mii)
+            '--- store info (if not stored already)
+            If (.fType And MFT_OWNERDRAW) = 0 Then
+               .dwItemData = pvSetMenuInfo(hMenu, Left(StrConv(sBuffer, vbUnicode), .cch), .fType, bMainMenu, .wID) '--- save hMenu
+            End If
+            '--- set ownerdrawn & itemdata, clear bitmap
+            If OsVersion >= &H40A Then
+               .cbSize = Len(mii)
+               .fMask = MIIM_FTYPE Or MIIM_DATA Or MIIM_BITMAP
+               .hbmpItem = 0
+            Else
+               .cbSize = Len(mii) - 4
+               .fMask = MIIM_TYPE Or MIIM_DATA
+            End If
+            .fType = (.fType And (MFT_SEPARATOR Or MFT_RIGHTJUSTIFY)) Or MFT_OWNERDRAW
+            'TODO: Tirar Hardcoded
+            'AutoColumn = 13
+            If lColumnCount = AutoColumn Then
+               .fType = .fType Or MF_MENUBREAK
+               lColumnCount = 0
+            End If
+            lColumnCount = lColumnCount + 1
+            Call SetMenuItemInfo(hMenu, lIdx, 1, mii)
+         End With
+      Next
+   End If
+   #If WEAK_REF_CURRENTMENU Then
+      CopyMemory VarPtr(g_oCurrentMenu), VarPtr(Me), 4
+   #Else
+      Set g_oCurrentMenu = Me
+   #End If
+   Exit Sub
 EH:
-    Debug.Print "Error in pvInitMenu: "; Error
-    Resume Next
+   Debug.Print "Error in pvInitMenu: "; Error
+   Resume Next
 End Sub
 
 Private Sub pvRestoreMenus(ByVal hMenu As Long)
@@ -1380,6 +1400,7 @@ Private Sub UserControl_ReadProperties(PropBag As PropertyBag)
         UseSystemFont = .ReadProperty("UseSystemFont", DEF_USESYSTEMFONT)
         Set Font = .ReadProperty("Font", DEF_FONT)
     End With
+    m_AutoColumn = PropBag.ReadProperty("AutoColumn", m_def_AutoColumn)
     Init UserControl.ContainerHwnd
 End Sub
 
@@ -1398,6 +1419,7 @@ Private Sub UserControl_WriteProperties(PropBag As PropertyBag)
         Next
         Call .WriteProperty("UseSystemFont", UseSystemFont, DEF_USESYSTEMFONT)
         Call .WriteProperty("Font", Font, DEF_FONT)
+        Call PropBag.WriteProperty("AutoColumn", m_AutoColumn, m_def_AutoColumn)
     End With
 End Sub
 

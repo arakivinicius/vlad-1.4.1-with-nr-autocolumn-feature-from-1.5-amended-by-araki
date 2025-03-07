@@ -1,0 +1,7 @@
+cHookingThunk = 0, 0, 0, 0, C
+cSubclassingThunk = 0, 0, 0, 0, C
+cMemDC = 0, 0, 0, 0, C
+ctxHookMenu = 52, 52, 289, 1000, Z, 26, 26, 267, 1000, C
+pagBitmaps = 78, 78, 1467, 435, , 104, 104, 341, 1052, C
+mdGlobals = 0, 0, 0, 0, C
+cMenuHook = 0, 0, 0, 0, C

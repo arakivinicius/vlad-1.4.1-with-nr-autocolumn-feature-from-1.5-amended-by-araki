@@ -1,14 +1,40 @@
 VERSION 5.00
-Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "Comdlg32.ocx"
+Object = "{F9043C88-F6F2-101A-A3C9-08002B2F49FB}#1.2#0"; "ComDlg32.OCX"
 Begin VB.PropertyPage pagBitmaps 
    Caption         =   "Menu Icons"
-   ClientHeight    =   5136
+   ClientHeight    =   5130
    ClientLeft      =   0
    ClientTop       =   0
-   ClientWidth     =   5472
+   ClientWidth     =   6495
    PaletteMode     =   0  'Halftone
-   ScaleHeight     =   5136
-   ScaleWidth      =   5472
+   ScaleHeight     =   5130
+   ScaleWidth      =   6495
+   Begin VB.Frame fraCustom 
+      Caption         =   " Custom"
+      Height          =   5000
+      Left            =   5445
+      TabIndex        =   20
+      Top             =   75
+      Width           =   1000
+      Begin VB.ComboBox cboAutoColumn 
+         Height          =   315
+         Left            =   120
+         Style           =   2  'Dropdown List
+         TabIndex        =   21
+         Top             =   2408
+         Width           =   810
+      End
+      Begin VB.Label Label7 
+         AutoSize        =   -1  'True
+         BackStyle       =   0  'Transparent
+         Caption         =   "AutoColumns"
+         Height          =   255
+         Left            =   45
+         TabIndex        =   22
+         Top             =   2175
+         Width           =   960
+      End
+   End
    Begin VB.CommandButton cmdClear 
       Caption         =   "Clear"
       Height          =   288
@@ -21,8 +47,8 @@ Begin VB.PropertyPage pagBitmaps
    Begin MSComDlg.CommonDialog comDlg 
       Left            =   2856
       Top             =   1932
-      _ExtentX        =   699
-      _ExtentY        =   699
+      _ExtentX        =   688
+      _ExtentY        =   688
       _Version        =   393216
       CancelError     =   -1  'True
       Filter          =   "Icons And Graphics (*.ico;*.bmp;*.gif;*.jpg)|*.ico;*.bmp;*.gif;*.jpg|All files (*.*)|*.*"
@@ -35,8 +61,8 @@ Begin VB.PropertyPage pagBitmaps
    Begin VB.Frame fraControls 
       Caption         =   "Menu Icon"
       BeginProperty Font 
-         Name            =   "MS Sans Serif"
-         Size            =   7.8
+         Name            =   "Arial"
+         Size            =   7.5
          Charset         =   204
          Weight          =   700
          Underline       =   0   'False
@@ -65,8 +91,8 @@ Begin VB.PropertyPage pagBitmaps
       Begin VB.PictureBox picBmp 
          Height          =   684
          Left            =   1092
-         ScaleHeight     =   636
-         ScaleWidth      =   1224
+         ScaleHeight     =   630
+         ScaleWidth      =   1215
          TabIndex        =   10
          Top             =   756
          Width           =   1272
@@ -115,8 +141,8 @@ Begin VB.PropertyPage pagBitmaps
    Begin VB.Frame fraCommon 
       Caption         =   "Common"
       BeginProperty Font 
-         Name            =   "MS Sans Serif"
-         Size            =   7.8
+         Name            =   "Arial"
+         Size            =   7.5
          Charset         =   204
          Weight          =   700
          Underline       =   0   'False
@@ -255,7 +281,17 @@ Private m_bChanged              As Boolean
 '==============================================================================
 ' Methods
 '==============================================================================
+Private Sub cboAutoColumn_Change()
 
+    If Not m_bInSet Then Modified = True
+
+End Sub
+
+Private Sub cboAutoColumn_Click()
+
+    If Not m_bInSet Then Modified = True
+
+End Sub
 Private Sub pvFillControls()
     Dim oCtl            As Object
     Dim vElem           As Variant
@@ -303,6 +339,9 @@ Private Sub pvFillControls()
     chkDisabled.Value = IIf(m_oControl.SelectDisabled, vbChecked, vbUnchecked)
     chkSystemFont.Value = IIf(m_oControl.UseSystemFont, vbChecked, vbUnchecked)
     cobSize.Text = m_oControl.BitmapSize
+    
+    cboAutoColumn.Text = m_oControl.AutoColumn
+    
     m_bInSet = False
     labNum = m_cBmps.Count & " icon(s)"
 End Sub
@@ -335,6 +374,8 @@ Private Function pvUpload() As Boolean
     m_oControl.SelectDisabled = (chkDisabled.Value = vbChecked)
     m_oControl.UseSystemFont = (chkSystemFont.Value = vbChecked)
     m_oControl.BitmapSize = Val(cobSize.Text)
+    m_oControl.AutoColumn = Val(cboAutoColumn.Text)
+    
     If Modified Then
         pvFillControls
         Modified = False
@@ -483,6 +524,10 @@ End Sub
 
 Private Sub PropertyPage_Initialize()
     Dim aTabStop(0 To 1)    As Long
+    Dim i As Integer
+    For i = 0 To 99
+        cboAutoColumn.AddItem i
+    Next i
     
     cobMaskColor.AddItem "#FF00FF - Magenta"
     cobMaskColor.AddItem "#C0C0C0 - Grey"
